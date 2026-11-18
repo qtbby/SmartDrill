@@ -101,9 +101,10 @@ fun EmergencyActionsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    HotlineButton("👮", "Security") { dial("911") }
-                    HotlineButton("🧑‍🚒", "Fire") { dial("911") }
-                    HotlineButton("⚕️", "Clinic") { dial("911") }
+                    HotlineButton("👮", "PNP") { dial("09985987104") }
+                    HotlineButton("🧑‍🚒", "Fire") { dial("09284587586") }
+                    HotlineButton("🚨", "CDRRMO") { dial("09302385937") }
+                    HotlineButton("⚡", "Power") { dial("09190563572") }
                 }
             }
             AppBottomBar(BottomTab.SOS, onTabSelected)
