@@ -1,5 +1,7 @@
 package com.example.smartdrill.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,6 +37,12 @@ fun EmergencyActionsScreen(
     onClearAlert: () -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
+    val context = LocalContext.current
+
+    fun dial(number: String) {
+        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+    }
+
     // Keep the selection pending until the user confirms the broadcast in the dialog.
     var pending by remember { mutableStateOf<Disaster?>(null) }
 
@@ -77,6 +86,24 @@ fun EmergencyActionsScreen(
 
                 if (activeDisaster != null) {
                     AuthButton("Clear alert (all safe)", onClearAlert)
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Emergency Hotlines",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    HotlineButton("👮", "Security") { dial("911") }
+                    HotlineButton("🧑‍🚒", "Fire") { dial("911") }
+                    HotlineButton("⚕️", "Clinic") { dial("911") }
                 }
             }
             AppBottomBar(BottomTab.SOS, onTabSelected)
@@ -130,6 +157,29 @@ private fun DisasterTile(disaster: Disaster, selected: Boolean, onClick: () -> U
             fontWeight = FontWeight.Black,
             fontSize = 20.sp
         )
+    }
+}
+
+// Present one hotline shortcut.
+@Composable
+private fun HotlineButton(icon: String, label: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(shape)
+                .background(Color.White.copy(alpha = 0.15f))
+                .border(1.dp, Color.White.copy(alpha = 0.3f), shape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(icon, fontSize = 28.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
