@@ -1,8 +1,13 @@
 package com.example.smartdrill.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,7 +35,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.smartdrill.EmergencyNotifier
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -51,6 +56,21 @@ fun EmergencyActionsScreen(
 
     fun dial(number: String) {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+    }
+
+    // Location permission state & launcher
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
     // Keep the selection pending until the user confirms the broadcast in the dialog.
@@ -89,7 +109,19 @@ fun EmergencyActionsScreen(
                             DisasterTile(
                                 disaster = disaster,
                                 selected = disaster == activeDisaster,
-                                onClick = { pending = disaster }
+                                onClick = {
+                                    if (!hasLocationPermission) {
+                                        permissionLauncher.launch(
+                                            arrayOf(
+                                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                                Manifest.permission.ACCESS_COARSE_LOCATION
+                                            )
+                                        )
+                                        Toast.makeText(context, "Location permission is required to send emergency reports.", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        pending = disaster
+                                    }
+                                }
                             )
                         }
                     }
@@ -133,14 +165,50 @@ fun EmergencyActionsScreen(
         AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Send ${disaster.label} report?") },
-            text = { Text("Your emergency report (including your GPS location and device model) will be sent to administrators for verification. No login required.") },
+            text = { Text("Your emergency report along with your current GPS location will be sent for administrator verification.") },
             confirmButton = {
                 TextButton(onClick = {
                     pending = null
+
+                    // 1. Check location permission and obtain real location once
+                    if (!hasLocationPermission) {
+                        Toast.makeText(context, "Location permission denied. Cannot submit report without coordinates.", Toast.LENGTH_LONG).show()
+                        return@TextButton
+                    }
+
+                    var currentLat: Double? = null
+                    var currentLng: Double? = null
+                    try {
+                        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
+                        val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                            ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                        if (loc != null) {
+                            currentLat = loc.latitude
+                            currentLng = loc.longitude
+                        }
+                    } catch (_: SecurityException) {
+                    } catch (_: Exception) {
+                    }
+
+                    if (currentLat == null || currentLng == null) {
+                        Toast.makeText(context, "Current location unavailable. Please ensure GPS is enabled.", Toast.LENGTH_LONG).show()
+                        return@TextButton
+                    }
+
                     val auth = FirebaseAuth.getInstance()
                     val doSendReport = { uid: String ->
                         val db = FirebaseFirestore.getInstance()
-                        db.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
+                        val userRef = db.collection("users").document(uid)
+
+                        userRef.get().addOnSuccessListener { userDoc ->
+                            // Check if user is an admin; admins must not send SOS reports
+                            val role = userDoc.getString("role")
+                            if (role == "admin") {
+                                Toast.makeText(context, "Administrators cannot submit emergency reports.", Toast.LENGTH_LONG).show()
+                                return@addOnSuccessListener
+                            }
+
+                            // 5-minute cooldown check based on lastReportAt
                             val lastReportTimestamp = userDoc.getTimestamp("lastReportAt")
                             if (lastReportTimestamp != null) {
                                 val elapsedMinutes = (System.currentTimeMillis() - lastReportTimestamp.toDate().time) / (1000 * 60)
@@ -150,79 +218,53 @@ fun EmergencyActionsScreen(
                                 }
                             }
 
-                            val senderId = EmergencyNotifier.getSenderId(context)
-                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
-                            var lat = 7.3135228
-                            var lng = 125.67033
-                            try {
-                                val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-                                val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                                if (loc != null) {
-                                    lat = loc.latitude
-                                    lng = loc.longitude
-                                }
-                            } catch (_: SecurityException) {
-                            } catch (_: Exception) {
-                            }
-
-                            val reportId = "rep_${System.currentTimeMillis()}"
+                            val reportId = db.collection("reports").document().id
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
-                                "lat" to lat,
-                                "lng" to lng,
-                                "senderId" to senderId,
-                                "deviceInfo" to deviceInfo,
+                                "lat" to currentLat,
+                                "lng" to currentLng,
+                                "createdAt" to FieldValue.serverTimestamp(),
+                                "status" to "pending"
+                            )
+
+                            // Same Firestore WriteBatch: create report AND update/create user profile lastReportAt
+                            val batch = db.batch()
+                            batch.set(db.collection("reports").document(reportId), reportData)
+                            
+                            val profileUpdates = hashMapOf<String, Any>(
+                                "role" to "user",
+                                "lastReportAt" to FieldValue.serverTimestamp()
+                            )
+                            batch.set(userRef, profileUpdates, SetOptions.merge())
+
+                            batch.commit().addOnSuccessListener {
+                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
+                                onDisasterSelected(disaster)
+                            }.addOnFailureListener { err ->
+                                Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            }
+                        }.addOnFailureListener { _ ->
+                            // If user profile doc doesn't exist yet, create it in batch
+                            val reportId = db.collection("reports").document().id
+                            val reportData = hashMapOf(
+                                "userId" to uid,
+                                "type" to disaster.name.lowercase(),
+                                "lat" to currentLat,
+                                "lng" to currentLng,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
 
                             val batch = db.batch()
                             batch.set(db.collection("reports").document(reportId), reportData)
-                            batch.update(db.collection("users").document(uid), "lastReportAt", FieldValue.serverTimestamp())
-                            batch.commit().addOnSuccessListener {
-                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
-                                onDisasterSelected(disaster)
-                            }.addOnFailureListener { _ ->
-                                db.collection("users").document(uid).set(hashMapOf("role" to "user", "lastReportAt" to FieldValue.serverTimestamp()), SetOptions.merge())
-                                db.collection("reports").document(reportId).set(reportData).addOnSuccessListener {
-                                    Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
-                                    onDisasterSelected(disaster)
-                                }.addOnFailureListener { err ->
-                                    Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }.addOnFailureListener { _ ->
-                            // Fallback if user doc doesn't exist yet
-                            val senderId = EmergencyNotifier.getSenderId(context)
-                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
-                            var lat = 7.3135228
-                            var lng = 125.67033
-                            try {
-                                val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-                                val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                                if (loc != null) {
-                                    lat = loc.latitude
-                                    lng = loc.longitude
-                                }
-                            } catch (_: SecurityException) {
-                            } catch (_: Exception) {
-                            }
-
-                            val reportId = "rep_${System.currentTimeMillis()}"
-                            val reportData = hashMapOf(
-                                "userId" to uid,
-                                "type" to disaster.name.lowercase(),
-                                "lat" to lat,
-                                "lng" to lng,
-                                "senderId" to senderId,
-                                "deviceInfo" to deviceInfo,
-                                "createdAt" to FieldValue.serverTimestamp(),
-                                "status" to "pending"
+                            val profileUpdates = hashMapOf<String, Any>(
+                                "role" to "user",
+                                "lastReportAt" to FieldValue.serverTimestamp()
                             )
-                            db.collection("reports").document(reportId).set(reportData).addOnSuccessListener {
+                            batch.set(userRef, profileUpdates, SetOptions.merge())
+
+                            batch.commit().addOnSuccessListener {
                                 Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
                                 onDisasterSelected(disaster)
                             }.addOnFailureListener { err ->
