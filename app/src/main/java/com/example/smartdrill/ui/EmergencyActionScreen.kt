@@ -149,7 +149,7 @@ private fun DisasterTile(disaster: Disaster, selected: Boolean, onClick: () -> U
             modifier = Modifier
                 .size(120.dp)
                 .clip(shape)
-                .background(Color(0xFF9E2A2B))
+                .background(Color(0xFF334155))
                 .border(
                     if (selected) 3.dp else 1.dp,
                     if (selected) Color.White else Color.White.copy(alpha = 0.25f),

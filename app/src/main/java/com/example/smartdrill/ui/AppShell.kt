@@ -73,7 +73,7 @@ fun ScreenGradient(modifier: Modifier = Modifier, content: @Composable BoxScope.
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFFF08A0C), Color(0xFFD9541A), Color(0xFFB02A12))
+                    listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A))
                 )
             ),
         content = content
