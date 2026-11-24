@@ -4,6 +4,13 @@
 
 ---
 
+## 📥 Download APK
+
+You can download the latest compiled debug APK of Smart Drill directly from GitHub:
+👉 **[Download Smart Drill APK](https://github.com/qtbby/SmartDrill/releases/latest/download/app-debug.apk)**
+
+---
+
 ## ✨ Key Features
 
 1. **Instant Access (No Login Required):**
