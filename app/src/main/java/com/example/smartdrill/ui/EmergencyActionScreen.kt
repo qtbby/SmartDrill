@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.smartdrill.EmergencyNotifier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -98,7 +99,7 @@ fun EmergencyActionsScreen(
                     fontSize = 11.sp,
                     textDecoration = TextDecoration.Underline
                 )
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(24.dp))
 
                 Disaster.entries.chunked(2).forEach { rowItems ->
                     Row(
@@ -125,7 +126,7 @@ fun EmergencyActionsScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(Modifier.height(24.dp))
                 }
 
                 if (activeDisaster != null) {
@@ -136,12 +137,39 @@ fun EmergencyActionsScreen(
                     ) {
                         Text("Clear alert (all safe)", color = Color.White)
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
 
-                Spacer(Modifier.height(10.dp))
+                // Emergency Instructions Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1E293B).copy(alpha = 0.9f))
+                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "📌 EMERGENCY INSTRUCTIONS",
+                            color = Color(0xFF34D399),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "1. Tap the emergency type (Flood, Earthquake, Storm, or Fire).\n2. Your precise GPS location and device info will be sent for verification.\n3. Reports are rate-limited (5-minute cooldown per user to prevent spam).\n4. Once verified and approved by admin, public alerts and evacuation routes appear instantly on all dashboards.",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
                 Text(
-                    text = "Emergency Hotlines",
+                    text = "Emergency Hotlines (Panabo City)",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -151,10 +179,10 @@ fun EmergencyActionsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    HotlineButton("👮", "PNP") { dial("09985987104") }
-                    HotlineButton("🧑‍🚒", "Fire") { dial("09284587586") }
-                    HotlineButton("🚨", "CDRRMO") { dial("09302385937") }
-                    HotlineButton("⚡", "Power") { dial("09190563572") }
+                    HotlineButton("👮", "PNP\n0998 598") { dial("09985987104") }
+                    HotlineButton("🧑‍🚒", "Fire\n0928 458") { dial("09284587586") }
+                    HotlineButton("🚨", "CDRRMO\n0930 238") { dial("09302385937") }
+                    HotlineButton("⚡", "Power\n0919 056") { dial("09190563572") }
                 }
             }
             AppBottomBar(BottomTab.SOS, onTabSelected)
@@ -165,7 +193,7 @@ fun EmergencyActionsScreen(
         AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Send ${disaster.label} report?") },
-            text = { Text("Your emergency report along with your current GPS location will be sent for administrator verification.") },
+            text = { Text("Your emergency report along with your current GPS location will be sent for administrator verification. No login required.") },
             confirmButton = {
                 TextButton(onClick = {
                     pending = null
@@ -218,12 +246,16 @@ fun EmergencyActionsScreen(
                                 }
                             }
 
+                            val senderId = EmergencyNotifier.getSenderId(context)
+                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
                             val reportId = db.collection("reports").document().id
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
                                 "lat" to currentLat,
                                 "lng" to currentLng,
+                                "senderId" to senderId,
+                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
@@ -246,12 +278,16 @@ fun EmergencyActionsScreen(
                             }
                         }.addOnFailureListener { _ ->
                             // If user profile doc doesn't exist yet, create it in batch
+                            val senderId = EmergencyNotifier.getSenderId(context)
+                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
                             val reportId = db.collection("reports").document().id
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
                                 "lat" to currentLat,
                                 "lng" to currentLng,
+                                "senderId" to senderId,
+                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
@@ -341,10 +377,10 @@ private fun HotlineButton(icon: String, label: String, onClick: () -> Unit) {
                 .border(1.dp, Color.White.copy(alpha = 0.3f), shape),
             contentAlignment = Alignment.Center
         ) {
-            Text(icon, fontSize = 28.sp)
+            Text(icon, fontSize = 26.sp)
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
