@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartdrill.EmergencyNotifier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -132,7 +133,7 @@ fun EmergencyActionsScreen(
         AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Send ${disaster.label} report?") },
-            text = { Text("Your emergency report will be instantly sent to administrators for verification. No login required.") },
+            text = { Text("Your emergency report (including your GPS location and device model) will be sent to administrators for verification. No login required.") },
             confirmButton = {
                 TextButton(onClick = {
                     pending = null
@@ -149,12 +150,30 @@ fun EmergencyActionsScreen(
                                 }
                             }
 
+                            val senderId = EmergencyNotifier.getSenderId(context)
+                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
+                            var lat = 7.3135228
+                            var lng = 125.67033
+                            try {
+                                val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                if (loc != null) {
+                                    lat = loc.latitude
+                                    lng = loc.longitude
+                                }
+                            } catch (_: SecurityException) {
+                            } catch (_: Exception) {
+                            }
+
                             val reportId = "rep_${System.currentTimeMillis()}"
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
-                                "lat" to 7.3135,
-                                "lng" to 125.6703,
+                                "lat" to lat,
+                                "lng" to lng,
+                                "senderId" to senderId,
+                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
@@ -176,12 +195,30 @@ fun EmergencyActionsScreen(
                             }
                         }.addOnFailureListener { _ ->
                             // Fallback if user doc doesn't exist yet
+                            val senderId = EmergencyNotifier.getSenderId(context)
+                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
+                            var lat = 7.3135228
+                            var lng = 125.67033
+                            try {
+                                val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                if (loc != null) {
+                                    lat = loc.latitude
+                                    lng = loc.longitude
+                                }
+                            } catch (_: SecurityException) {
+                            } catch (_: Exception) {
+                            }
+
                             val reportId = "rep_${System.currentTimeMillis()}"
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
-                                "lat" to 7.3135,
-                                "lng" to 125.6703,
+                                "lat" to lat,
+                                "lng" to lng,
+                                "senderId" to senderId,
+                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
