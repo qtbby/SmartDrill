@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 fun EmergencyActionsScreen(
     modifier: Modifier = Modifier,
     activeDisaster: Disaster? = null,
+    currentTheme: AppTheme = AppTheme.DARK_SLATE,
+    onThemeChanged: (AppTheme) -> Unit = {},
     onDisasterSelected: (Disaster) -> Unit = {},
     onClearAlert: () -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
@@ -48,7 +50,7 @@ fun EmergencyActionsScreen(
     // Keep the selection pending until the user confirms the broadcast in the dialog.
     var pending by remember { mutableStateOf<Disaster?>(null) }
 
-    ScreenGradient(modifier) {
+    ScreenGradient(modifier, currentTheme) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Column(
                 modifier = Modifier
@@ -56,6 +58,8 @@ fun EmergencyActionsScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
+                HomeHeader(currentTheme, onThemeChanged)
+                Spacer(Modifier.height(16.dp))
                 Text(
                     text = "EMERGENCY ACTIONS!",
                     color = Color.White,

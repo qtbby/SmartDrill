@@ -56,6 +56,8 @@ val DefaultMapCenter = LatLon(7.3135228, 125.67033)
 fun MapScreen(
     modifier: Modifier = Modifier,
     hazardActive: Boolean = false,
+    currentTheme: AppTheme = AppTheme.DARK_SLATE,
+    onThemeChanged: (AppTheme) -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
     // Recalculate route guidance whenever the hazard state or current location changes.
@@ -64,14 +66,14 @@ fun MapScreen(
         userLocation?.let { CampusGraph.findRouteFrom(it.lat, it.lng, hazardActive) }
     }
 
-    ScreenGradient(modifier) {
+    ScreenGradient(modifier, currentTheme) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
-                HomeHeader()
+                HomeHeader(currentTheme, onThemeChanged)
                 Spacer(Modifier.height(16.dp))
                 if (route != null) {
                     InfoLine("Route from your current location")

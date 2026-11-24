@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.example.smartdrill.ui.AppTheme
 import com.example.smartdrill.ui.BottomTab
 import com.example.smartdrill.ui.Disaster
 import com.example.smartdrill.ui.EmergencyActionsScreen
@@ -46,6 +47,7 @@ fun SmartDrillApp() {
     val context = LocalContext.current
 
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+    var currentTheme by rememberSaveable { mutableStateOf(AppTheme.DARK_SLATE) }
     var activeDisaster by rememberSaveable { mutableStateOf<Disaster?>(null) }
     var activeSenderId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeLocationInfo by rememberSaveable { mutableStateOf<String?>(null) }
@@ -99,17 +101,23 @@ fun SmartDrillApp() {
             senderId = activeSenderId,
             locationInfo = activeLocationInfo,
             deviceInfo = activeDeviceInfo,
+            currentTheme = currentTheme,
+            onThemeChanged = { currentTheme = it },
             onRefresh = { toast("Dashboard is up to date") },
             onTabSelected = { goToTab(it) }
         )
 
         Screen.MAP -> MapScreen(
             hazardActive = false,
+            currentTheme = currentTheme,
+            onThemeChanged = { currentTheme = it },
             onTabSelected = { goToTab(it) }
         )
 
         Screen.SOS -> EmergencyActionsScreen(
             activeDisaster = activeDisaster,
+            currentTheme = currentTheme,
+            onThemeChanged = { currentTheme = it },
             onDisasterSelected = { disaster ->
                 if (!EmergencyNotifier.isInsideCampus(context)) {
                     toast("❌ SOS Denied: You are outside campus! False alarms are strictly prohibited.")

@@ -32,10 +32,12 @@ fun HomeScreen(
     senderId: String? = null,
     locationInfo: String? = null,
     deviceInfo: String? = null,
+    currentTheme: AppTheme = AppTheme.DARK_SLATE,
+    onThemeChanged: (AppTheme) -> Unit = {},
     onRefresh: () -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
-    ScreenGradient(modifier) {
+    ScreenGradient(modifier, currentTheme) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Column(
                 modifier = Modifier
@@ -43,7 +45,7 @@ fun HomeScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
-                HomeHeader()
+                HomeHeader(currentTheme, onThemeChanged)
                 Spacer(Modifier.height(20.dp))
                 StatusCard(activeDisaster, senderId, locationInfo, deviceInfo, onRefresh)
                 Spacer(Modifier.height(16.dp))
