@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +70,36 @@ fun SmartDrillApp() {
         }
     }
 
+    // Firestore live listener for active alerts from admin website
+    DisposableEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val listener = db.collection("alerts")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                if (snapshot != null && !snapshot.isEmpty) {
+                    val activeDoc = snapshot.documents.firstOrNull { doc ->
+                        val activeVal = doc.get("active")
+                        activeVal == true || activeVal.toString().lowercase() == "true" || activeVal.toString() == "1"
+                    }
+
+                    if (activeDoc != null) {
+                        val typeStr = activeDoc.getString("type") ?: "earthquake"
+                        val disaster = Disaster.entries.find { it.name.equals(typeStr, true) } ?: Disaster.EARTHQUAKE
+                        activeDisaster = disaster
+                        val msg = activeDoc.getString("message") ?: "Emergency Alert Active"
+                        EmergencyNotifier.showEmergencyAlert(context, disaster, "Admin EOC", "Campus Command Center", msg)
+                    } else {
+                        activeDisaster = null
+                    }
+                } else {
+                    activeDisaster = null
+                }
+            }
+        onDispose {
+            listener.remove()
+        }
+    }
+
     // Request POST_NOTIFICATIONS permission on Android 13+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -77,7 +108,6 @@ fun SmartDrillApp() {
     LaunchedEffect(Unit) {
         meshManager.startMeshService()
 
-        // Sign in anonymously in the background so emergency reports work instantly without login
         val auth = FirebaseAuth.getInstance()
         if (auth.currentUser == null) {
             auth.signInAnonymously().addOnSuccessListener { result ->
