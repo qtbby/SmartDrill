@@ -4,11 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +57,7 @@ fun HomeScreen(
 // Display the no-alert state or disaster steps, with refresh action kept in the card header.
 @Composable
 private fun StatusCard(disaster: Disaster?, senderId: String?, locationInfo: String?, deviceInfo: String?, onRefresh: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
@@ -63,39 +65,57 @@ private fun StatusCard(disaster: Disaster?, senderId: String?, locationInfo: Str
             .heightIn(min = if (disaster == null) 210.dp else 0.dp)
             .clip(shape)
             .background(
-                if (disaster == null) Color.White.copy(alpha = 0.15f)
-                else Color(0xFFB71C1C).copy(alpha = 0.35f)
+                if (disaster == null) Color(0xFF1E293B).copy(alpha = 0.85f)
+                else Color(0xFF7F1D1D).copy(alpha = 0.90f)
             )
-            .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
-            .padding(14.dp)
+            .border(
+                1.dp,
+                if (disaster == null) Color(0xFF334155) else Color(0xFFEF4444),
+                shape
+            )
+            .padding(16.dp)
     ) {
         if (disaster == null) {
-            Row(
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "NO DISASTER HAS BEEN DETECTED.",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.weight(1f).padding(end = 28.dp)
-                )
-            }
-            Box(
+            Column(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .align(Alignment.Center)
-                    .size(width = 56.dp, height = 70.dp)
-                    .border(3.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF34D399))
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "ALL CAMPUS ZONES SECURE",
+                        color = Color(0xFF34D399),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF334155)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF34D399), modifier = Modifier.size(28.dp))
+                }
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    ":)",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "System active. Monitoring peer-to-peer mesh network for emergency broadcasts.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
             }
         } else {
@@ -107,7 +127,7 @@ private fun StatusCard(disaster: Disaster?, senderId: String?, locationInfo: Str
 
         IconButton(
             onClick = onRefresh,
-            modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
+            modifier = Modifier.align(Alignment.TopEnd).size(32.dp)
         ) {
             Icon(Icons.Default.Refresh, "Refresh", tint = Color.White)
         }
