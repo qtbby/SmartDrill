@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 // Let a user select and confirm a disaster alert, or clear the currently active alert.
 @Composable
@@ -131,47 +132,78 @@ fun EmergencyActionsScreen(
         AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Send ${disaster.label} report?") },
-            text = { Text("Your report will be sent to administrators for review and approval. Spamming false reports is restricted.") },
+            text = { Text("Your emergency report will be instantly sent to administrators for verification. No login required.") },
             confirmButton = {
                 TextButton(onClick = {
                     pending = null
-                    val uid = FirebaseAuth.getInstance().currentUser?.uid
-                    if (uid == null) {
-                        Toast.makeText(context, "Please sign in to send emergency reports.", Toast.LENGTH_SHORT).show()
-                        return@TextButton
-                    }
-                    val db = FirebaseFirestore.getInstance()
-                    db.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
-                        val lastReportTimestamp = userDoc.getTimestamp("lastReportAt")
-                        if (lastReportTimestamp != null) {
-                            val elapsedMinutes = (System.currentTimeMillis() - lastReportTimestamp.toDate().time) / (1000 * 60)
-                            if (elapsedMinutes < 5) {
-                                Toast.makeText(context, "Please wait before sending another report (${5 - elapsedMinutes} min remaining).", Toast.LENGTH_LONG).show()
-                                return@addOnSuccessListener
+                    val auth = FirebaseAuth.getInstance()
+                    val doSendReport = { uid: String ->
+                        val db = FirebaseFirestore.getInstance()
+                        db.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
+                            val lastReportTimestamp = userDoc.getTimestamp("lastReportAt")
+                            if (lastReportTimestamp != null) {
+                                val elapsedMinutes = (System.currentTimeMillis() - lastReportTimestamp.toDate().time) / (1000 * 60)
+                                if (elapsedMinutes < 5) {
+                                    Toast.makeText(context, "Please wait before sending another report (${5 - elapsedMinutes} min remaining).", Toast.LENGTH_LONG).show()
+                                    return@addOnSuccessListener
+                                }
+                            }
+
+                            val reportId = "rep_${System.currentTimeMillis()}"
+                            val reportData = hashMapOf(
+                                "userId" to uid,
+                                "type" to disaster.name.lowercase(),
+                                "lat" to 7.3135,
+                                "lng" to 125.6703,
+                                "createdAt" to FieldValue.serverTimestamp(),
+                                "status" to "pending"
+                            )
+
+                            val batch = db.batch()
+                            batch.set(db.collection("reports").document(reportId), reportData)
+                            batch.update(db.collection("users").document(uid), "lastReportAt", FieldValue.serverTimestamp())
+                            batch.commit().addOnSuccessListener {
+                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
+                                onDisasterSelected(disaster)
+                            }.addOnFailureListener { _ ->
+                                db.collection("users").document(uid).set(hashMapOf("role" to "user", "lastReportAt" to FieldValue.serverTimestamp()), SetOptions.merge())
+                                db.collection("reports").document(reportId).set(reportData).addOnSuccessListener {
+                                    Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
+                                    onDisasterSelected(disaster)
+                                }.addOnFailureListener { err ->
+                                    Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }.addOnFailureListener { _ ->
+                            // Fallback if user doc doesn't exist yet
+                            val reportId = "rep_${System.currentTimeMillis()}"
+                            val reportData = hashMapOf(
+                                "userId" to uid,
+                                "type" to disaster.name.lowercase(),
+                                "lat" to 7.3135,
+                                "lng" to 125.6703,
+                                "createdAt" to FieldValue.serverTimestamp(),
+                                "status" to "pending"
+                            )
+                            db.collection("reports").document(reportId).set(reportData).addOnSuccessListener {
+                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
+                                onDisasterSelected(disaster)
+                            }.addOnFailureListener { err ->
+                                Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
                             }
                         }
+                    }
 
-                        val reportId = "rep_${System.currentTimeMillis()}"
-                        val reportData = hashMapOf(
-                            "userId" to uid,
-                            "type" to disaster.name.lowercase(),
-                            "lat" to 7.3135,
-                            "lng" to 125.6703,
-                            "createdAt" to FieldValue.serverTimestamp(),
-                            "status" to "pending"
-                        )
-
-                        val batch = db.batch()
-                        batch.set(db.collection("reports").document(reportId), reportData)
-                        batch.update(db.collection("users").document(uid), "lastReportAt", FieldValue.serverTimestamp())
-                        batch.commit().addOnSuccessListener {
-                            Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
-                            onDisasterSelected(disaster)
+                    val currentUser = auth.currentUser
+                    if (currentUser == null) {
+                        auth.signInAnonymously().addOnSuccessListener { result ->
+                            val uid = result.user?.uid ?: "anonymous"
+                            doSendReport(uid)
                         }.addOnFailureListener { e ->
-                            Toast.makeText(context, "Failed to send report: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Quick authentication failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                         }
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(context, "Error verifying cooldown: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        doSendReport(currentUser.uid)
                     }
                 }) { Text("Send report") }
             },

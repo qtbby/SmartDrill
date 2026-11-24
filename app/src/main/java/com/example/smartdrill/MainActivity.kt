@@ -27,6 +27,10 @@ import com.example.smartdrill.ui.EmergencyActionsScreen
 import com.example.smartdrill.ui.HomeScreen
 import com.example.smartdrill.ui.MapScreen
 import com.example.smartdrill.ui.theme.SmartDrillTheme
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +76,24 @@ fun SmartDrillApp() {
 
     LaunchedEffect(Unit) {
         meshManager.startMeshService()
+
+        // Sign in anonymously in the background so emergency reports work instantly without login
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) {
+            auth.signInAnonymously().addOnSuccessListener { result ->
+                val uid = result.user?.uid
+                if (uid != null) {
+                    val db = FirebaseFirestore.getInstance()
+                    val userDoc = hashMapOf(
+                        "uid" to uid,
+                        "role" to "user",
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                    db.collection("users").document(uid).set(userDoc, SetOptions.merge())
+                }
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
