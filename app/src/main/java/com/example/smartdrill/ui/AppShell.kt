@@ -9,10 +9,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +31,14 @@ import androidx.compose.ui.unit.sp
 
 // Destinations available from the app's persistent bottom navigation bar.
 enum class BottomTab { MAP, HOME, SOS }
+
+// Professional theme options for the user interface.
+enum class AppTheme(val label: String, val colors: List<Color>) {
+    DARK_SLATE("Dark Slate (Default)", listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A))),
+    MIDNIGHT_NAVY("Midnight Navy", listOf(Color(0xFF0A192F), Color(0xFF172A45), Color(0xFF0A192F))),
+    EMERALD_DEFENSE("Emerald Defense", listOf(Color(0xFF064E3B), Color(0xFF022C22), Color(0xFF064E3B))),
+    CRIMSON_COMMAND("Crimson Command", listOf(Color(0xFF450A0A), Color(0xFF1C1917), Color(0xFF450A0A)))
+}
 
 // Alert categories and their presentation copy, used consistently by dashboards and SOS flows.
 enum class Disaster(val label: String, val emoji: String, val steps: List<String>) {
@@ -67,39 +82,88 @@ enum class Disaster(val label: String, val emoji: String, val steps: List<String
 
 // Shared full-screen background wrapper for the main dashboard and emergency destinations.
 @Composable
-fun ScreenGradient(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun ScreenGradient(modifier: Modifier = Modifier, theme: AppTheme = AppTheme.DARK_SLATE, content: @Composable BoxScope.() -> Unit) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A))
-                )
-            ),
+            .background(Brush.verticalGradient(theme.colors)),
         content = content
     )
 }
 
-// App header showing the app name.
+// App header showing the app name, professional status badge, and theme picker.
 @Composable
-fun HomeHeader() {
+fun HomeHeader(
+    currentTheme: AppTheme = AppTheme.DARK_SLATE,
+    onThemeChanged: (AppTheme) -> Unit = {}
+) {
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = "Smart Drill",
+                text = "SmartDrill",
                 color = Color.White,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Black
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp
             )
             Text(
-                text = "Emergency Alert System",
-                color = Color.White,
-                fontSize = 11.sp
+                text = "Campus Emergency System",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF065F46).copy(alpha = 0.6f))
+                    .border(1.dp, Color(0xFF34D399), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "🟢 SECURE",
+                    color = Color(0xFF34D399),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .clickable { menuOpen = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Palette, "Theme Palette", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    Text(
+                        text = "Select Color Theme",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = Color.Gray
+                    )
+                    AppTheme.entries.forEach { theme ->
+                        DropdownMenuItem(
+                            text = { Text(theme.label) },
+                            onClick = {
+                                menuOpen = false
+                                onThemeChanged(theme)
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
