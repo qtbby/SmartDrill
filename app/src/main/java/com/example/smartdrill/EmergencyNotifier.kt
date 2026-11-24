@@ -24,27 +24,41 @@ object EmergencyNotifier {
     private const val MAX_CAMPUS_RADIUS_METERS = 1000.0 // 1 km radius geofence
 
     fun isInsideCampus(context: Context): Boolean {
-        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        try {
-            val providers = locationManager.getProviders(true)
-            var bestLocation: Location? = null
-            for (provider in providers) {
-                val l = locationManager.getLastKnownLocation(provider) ?: continue
-                if (bestLocation == null || l.accuracy < bestLocation.accuracy) {
-                    bestLocation = l
-                }
+        val JM = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val bestLocation = getBestLocation(JM) ?: return false
+        val results = FloatArray(1)
+        Location.distanceBetween(
+            bestLocation.latitude, bestLocation.longitude,
+            CAMPUS_LAT, CAMPUS_LNG, results
+        )
+        return results[0] <= MAX_CAMPUS_RADIUS_METERS
+    }
+
+    // Best-effort GPS/network fix. Returns null when no location is available or
+    // the app lacks location permission, so callers can deny the SOS instead of
+    // assuming the user is on campus (anti-prank geofencing).
+    private fun getBestLocation(locationManager: LocationManager): Location? {
+        val providers = (locationManager.getProviders(true) ?: return null)
+        var best: Location? = null
+        for (provider in providers) {
+            val l = try {
+               locationManager.getLastKnownLocation(provider)
+            } catch (_: SecurityException) {
+                null
+            } ?: continue
+            if (best == null || l.accuracy < best.accuracy) {
+                best = l
             }
-            if (bestLocation != null) {
-                val results = FloatArray(1)
-                Location.distanceBetween(
-                    bestLocation.latitude, bestLocation.longitude,
-                    CAMPUS_LAT, CAMPUS_LNG, results
-                )
-                return results[0] <= MAX_CAMPUS_RADIUS_METERS
-            }
-        } catch (_: SecurityException) {
         }
-        return true
+        return best
+    }
+
+    // Human-readable location string for the SOS broadcast. Falls back to a
+    // generic message when GPS is unavailable so the alert is never silently empty.
+    fun getLocationInfo(context: Context): String {
+        val bestLocation = getBestLocation(context.getSystemService(Context.LOCATION_SERVICE) as LocationManager)
+            ?: return "GPS location unavailable"
+        return "📍 ${"%.4f".format(bestLocation.latitude)}, ${"%.4f".format(bestLocation.longitude)} (GPS accuracy ${bestLocation.accuracy.toInt()}m)"
     }
 
     fun getSenderId(context: Context): String {

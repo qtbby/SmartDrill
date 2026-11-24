@@ -46,7 +46,6 @@ fun SmartDrillApp() {
     val context = LocalContext.current
 
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
-    var currentUser by rememberSaveable { mutableStateOf("User") }
     var activeDisaster by rememberSaveable { mutableStateOf<Disaster?>(null) }
     var activeSenderId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeLocationInfo by rememberSaveable { mutableStateOf<String?>(null) }
@@ -96,22 +95,17 @@ fun SmartDrillApp() {
 
     when (screen) {
         Screen.HOME -> HomeScreen(
-            userName = currentUser,
             activeDisaster = activeDisaster,
             senderId = activeSenderId,
             locationInfo = activeLocationInfo,
             deviceInfo = activeDeviceInfo,
-            onNotificationsClick = { toast("No new notifications") },
             onRefresh = { toast("Dashboard is up to date") },
-            onTabSelected = { goToTab(it) },
-            onLogout = { toast("Smart Drill is active") }
+            onTabSelected = { goToTab(it) }
         )
 
         Screen.MAP -> MapScreen(
-            userName = currentUser,
-            onNotificationsClick = { toast("No new notifications") },
-            onTabSelected = { goToTab(it) },
-            onLogout = { toast("Smart Drill is active") }
+            hazardActive = false,
+            onTabSelected = { goToTab(it) }
         )
 
         Screen.SOS -> EmergencyActionsScreen(
@@ -122,7 +116,7 @@ fun SmartDrillApp() {
                 } else {
                     val senderId = EmergencyNotifier.getSenderId(context)
                     val deviceInfo = EmergencyNotifier.getDeviceInfo()
-                    val locationInfo = "DNSC Campus Grounds (GPS Active)"
+                    val locationInfo = EmergencyNotifier.getLocationInfo(context)
                     activeDisaster = disaster
                     activeSenderId = senderId
                     activeLocationInfo = locationInfo

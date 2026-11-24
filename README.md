@@ -23,6 +23,12 @@
 
 ---
 
+## 🚧 Development Status
+
+**Note:** The evacuation capacity algorithm is currently under development. The AI-generated MaxFlow algorithm has been removed, and a custom implementation is being developed by the team. Routing functionality remains fully operational while the new algorithm is being built.
+
+---
+
 ## 📁 Project Architecture & File Structure
 
 * **`MainActivity.kt`**: Central entry point managing Compose navigation (`HOME`, `MAP`, `SOS`), permission handlers, and alert state.
@@ -30,9 +36,8 @@
 * **`AppShell.kt`**: Persistent bottom navigation bar, screen gradients, and shared alert banners (`DisasterAlertContent`).
 * **`HomeScreen.kt`**: Citizen dashboard displaying active disaster status, recommended safety steps, and quick refresh actions.
 * **`MapScreen.kt`**: OpenStreetMap (`osmdroid`) canvas rendering campus nodes, evacuation pathways, and real-time location.
-* **`AdminLoginScreen.kt` / `AdminHomeScreen`**: Administrator portal for broadcasting alerts and managing emergency hotlines.
-* **`data/`**: Room database definitions (`AppDatabase.kt`), user entities (`Entities.kt`), DAOs (`Daos.kt`), and session state (`SessionManager.kt`).
-* **`routing/`**: Graph theory algorithms (`CampusGraph.kt`, `RouteFinder.java`, `MaxFlow.java`) for optimal campus evacuation routing.
+* **`NearbyMeshManager.kt`**: Offline peer-to-peer mesh networking via Google Play Services Nearby Connections.
+* **`routing/`**: Graph theory algorithms for optimal campus evacuation routing.
 
 ---
 
@@ -41,7 +46,7 @@
 * **Language:** Kotlin & Java
 * **UI Framework:** Jetpack Compose (Material 3)
 * **Architecture:** Unidirectional Data Flow (UDF) with Compose State
-* **Local Storage:** Room Database & SharedPreferences
+* **Local Storage:** SharedPreferences (key-value storage for sender ID)
 * **Maps:** osmdroid (OpenStreetMap for Android)
 * **Notifications & Audio:** NotificationCompat, NotificationChannel, ToneGenerator
 
