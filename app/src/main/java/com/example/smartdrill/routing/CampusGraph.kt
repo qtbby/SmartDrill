@@ -58,7 +58,7 @@ object CampusGraph {
     private const val HAZARD_B = 4
     private const val MAX_START_SNAP_DISTANCE_METERS = 120.0
 
-    val center = toLatLon(570.0, 400.0)
+    val center = LatLon(7.313721, 125.670175)
 
     // Places are positions on the map picture. Evacuation points are marked true.
     val graph = Graph().apply {
