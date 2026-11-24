@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,7 +87,13 @@ fun EmergencyActionsScreen(
                 }
 
                 if (activeDisaster != null) {
-                    AuthButton("Clear alert (all safe)", onClearAlert)
+                    Button(
+                        onClick = onClearAlert,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Clear alert (all safe)", color = Color.White)
+                    }
                     Spacer(Modifier.height(20.dp))
                 }
 

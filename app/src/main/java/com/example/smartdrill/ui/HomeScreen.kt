@@ -26,15 +26,12 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    userName: String = "User",
     activeDisaster: Disaster? = null,    // null = Dashboard, otherwise = Situation
     senderId: String? = null,
     locationInfo: String? = null,
     deviceInfo: String? = null,
-    onNotificationsClick: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    onTabSelected: (BottomTab) -> Unit = {},
-    onLogout: () -> Unit = {}
+    onTabSelected: (BottomTab) -> Unit = {}
 ) {
     ScreenGradient(modifier) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
@@ -44,7 +41,7 @@ fun HomeScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
-                HomeHeader(userName, onNotificationsClick, onLogout)
+                HomeHeader()
                 Spacer(Modifier.height(20.dp))
                 StatusCard(activeDisaster, senderId, locationInfo, deviceInfo, onRefresh)
                 Spacer(Modifier.height(16.dp))

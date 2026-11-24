@@ -55,11 +55,8 @@ val DefaultMapCenter = LatLon(7.3135228, 125.67033)
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
-    userName: String = "User",
     hazardActive: Boolean = false,
-    onNotificationsClick: () -> Unit = {},
-    onTabSelected: (BottomTab) -> Unit = {},
-    onLogout: () -> Unit = {}
+    onTabSelected: (BottomTab) -> Unit = {}
 ) {
     // Recalculate route guidance whenever the hazard state or current location changes.
     var userLocation by remember { mutableStateOf<LatLon?>(null) }
@@ -74,7 +71,7 @@ fun MapScreen(
                     .weight(1f)
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
-                HomeHeader(userName, onNotificationsClick, onLogout)
+                HomeHeader()
                 Spacer(Modifier.height(16.dp))
                 if (route != null) {
                     InfoLine("Route from your current location")

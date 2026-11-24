@@ -9,27 +9,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -91,16 +80,9 @@ fun ScreenGradient(modifier: Modifier = Modifier, content: @Composable BoxScope.
     )
 }
 
-// Display the current user's greeting, notifications, and confirmation-gated logout menu.
+// App header showing the app name.
 @Composable
-fun HomeHeader(
-    userName: String,
-    onNotificationsClick: () -> Unit,
-    onLogout: () -> Unit
-) {
-    var menuOpen by rememberSaveable { mutableStateOf(false) }
-
-    // Render notification/profile actions and keep logout behind an explicit confirmation.
+fun HomeHeader() {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -108,60 +90,16 @@ fun HomeHeader(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = "Welcome, $userName",
+                text = "Smart Drill",
                 color = Color.White,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
-                text = "Watch your dashboard!",
+                text = "Emergency Alert System",
                 color = Color.White,
-                fontSize = 11.sp,
-                textDecoration = TextDecoration.Underline
+                fontSize = 11.sp
             )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onNotificationsClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(9.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFFC107))
-                )
-            }
-            Box {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f))
-                        .border(2.dp, Color.White, CircleShape)
-                        .clickable { menuOpen = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, "Profile", tint = Color.White)
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Smart Drill Active") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            onLogout()
-                        }
-                    )
-                }
-            }
         }
     }
 }
