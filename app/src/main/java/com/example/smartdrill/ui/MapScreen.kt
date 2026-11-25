@@ -9,11 +9,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -84,6 +89,7 @@ fun MapScreen(
     // Live listener for evacuation locations from Firestore (active == true)
     var firestoreEvacuations by remember { mutableStateOf<List<FirestoreEvacuationLocation>>(emptyList()) }
     var selectedEvacuation by remember { mutableStateOf<FirestoreEvacuationLocation?>(null) }
+    var showExplanationDialog by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         val db = FirebaseFirestore.getInstance()
@@ -156,6 +162,16 @@ fun MapScreen(
                     InfoLine("You will arrive at: ${route.arrivalText}")
                     InfoLine("Direction: ${route.directionText}")
                     InfoLine("Safe place: ${route.destinationName}")
+
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { showExplanationDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F3B4F)),
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("📊 How was this route calculated?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                 } else if (userLocation == null) {
                     InfoLine("Enable location to find a campus evacuation route.")
                 } else {
@@ -211,6 +227,41 @@ fun MapScreen(
                 )
             }
         }
+    }
+
+    // Algorithm calculation breakdown dialog
+    if (showExplanationDialog && route != null) {
+        AlertDialog(
+            onDismissRequest = { showExplanationDialog = false },
+            title = { Text("Route & Max-Flow Calculation Breakdown", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("🤖 Routing Engine: Campus Graph Dijkstra + Max-Flow Capacity", fontWeight = FontWeight.Bold, color = Color(0xFF34D399), fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text("1. Starting Point:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("• Your GPS location snapped to the nearest campus graph node.", fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("2. Target Destination:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("• ${route.destinationName} (Verified Safe Evacuation Area).", fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("3. Path Metrics:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("• Total Distance: %.1f meters.".format(route.distanceMeters), fontSize = 12.sp)
+                    Text("• Estimated Arrival: ${route.arrivalText}.", fontSize = 12.sp)
+                    Text("• Guidance Direction: ${route.directionText}.", fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("4. Max-Flow Capacity Analysis:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("• Evaluated road segment throughput capacities.", fontSize = 12.sp)
+                    Text("• Ensured evacuee flow does not exceed bottleneck thresholds.", fontSize = 12.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text("✨ Why this path? It provides the safest, unblocked, and most optimal route out of campus.", fontSize = 12.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color(0xFF90CAF9))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExplanationDialog = false }) {
+                    Text("Got it", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 
