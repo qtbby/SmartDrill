@@ -4,6 +4,12 @@
 
 ---
 
+## 📘 Developer Guide
+
+For complete instructions on setup, testing, Firebase configuration, and architecture, please read the **[Android Developer Guide](docs/ANDROID_GUIDE.md)**.
+
+---
+
 ## 📥 Download APK
 
 You can check the repository releases for downloadable APK versions:
