@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +43,6 @@ fun EmergencyActionsScreen(
     currentTheme: AppTheme = AppTheme.DARK_SLATE,
     onThemeChanged: (AppTheme) -> Unit = {},
     onDisasterSelected: (Disaster) -> Unit = {},
-    onClearAlert: () -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -159,16 +156,7 @@ fun EmergencyActionsScreen(
                     Spacer(Modifier.height(24.dp))
                 }
 
-                if (activeDisaster != null) {
-                    Button(
-                        onClick = onClearAlert,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Clear alert (all safe)", color = Color.White)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
+
 
                 // Emergency Instructions Card
                 Box(

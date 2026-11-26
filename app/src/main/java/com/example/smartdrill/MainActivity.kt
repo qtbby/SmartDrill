@@ -200,16 +200,6 @@ fun SmartDrillApp() {
                 toast("${disaster.label} report submitted. Waiting for admin approval.")
                 goToTab(BottomTab.HOME)
             },
-            onClearAlert = {
-                activeDisaster = null
-                activeSenderId = null
-                activeLocationInfo = null
-                activeDeviceInfo = null
-                lastActiveAlertId = null
-                EmergencyNotifier.cancelAlert(context)
-                toast("Alert cleared")
-                goToTab(BottomTab.HOME)
-            },
             onTabSelected = { goToTab(it) }
         )
     }
