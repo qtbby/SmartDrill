@@ -57,6 +57,7 @@ fun SmartDrillApp() {
     var activeSenderId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeLocationInfo by rememberSaveable { mutableStateOf<String?>(null) }
     var activeDeviceInfo by rememberSaveable { mutableStateOf<String?>(null) }
+    var lastActiveAlertId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Initialize Google Nearby Connections Mesh Manager
     val meshManager = remember {
@@ -66,11 +67,12 @@ fun SmartDrillApp() {
             activeSenderId = senderId
             activeLocationInfo = locationInfo
             activeDeviceInfo = deviceInfo
-            EmergencyNotifier.showEmergencyAlert(context, disaster, senderId, locationInfo, deviceInfo)
+            // Note: Peer mesh broadcasts remain local or can be handled as needed
         }
     }
 
-    // Firestore live listener for active alerts from admin website
+    // Firestore live listener for active alerts from admin website (active == true)
+    // Ensures alarm waits for admin approval and does not re-trigger repeatedly on snapshot refreshes.
     DisposableEffect(Unit) {
         val db = FirebaseFirestore.getInstance()
         val listener = db.collection("alerts")
@@ -83,16 +85,36 @@ fun SmartDrillApp() {
                     }
 
                     if (activeDoc != null) {
+                        val alertId = activeDoc.id
                         val typeStr = activeDoc.getString("type") ?: "earthquake"
                         val disaster = Disaster.entries.find { it.name.equals(typeStr, true) } ?: Disaster.EARTHQUAKE
-                        activeDisaster = disaster
                         val msg = activeDoc.getString("message") ?: "Emergency Alert Active"
-                        EmergencyNotifier.showEmergencyAlert(context, disaster, "Admin EOC", "Campus Command Center", msg)
+
+                        activeDisaster = disaster
+                        activeSenderId = "Admin EOC"
+                        activeLocationInfo = "Campus Command Center"
+                        activeDeviceInfo = EmergencyNotifier.getDeviceInfo()
+
+                        // Play alarm sound and notification ONLY ONCE per new active alert ID
+                        if (lastActiveAlertId != alertId) {
+                            lastActiveAlertId = alertId
+                            EmergencyNotifier.showEmergencyAlert(context, disaster, "Admin EOC", "Campus Command Center", msg)
+                        }
                     } else {
                         activeDisaster = null
+                        activeSenderId = null
+                        activeLocationInfo = null
+                        activeDeviceInfo = null
+                        lastActiveAlertId = null
+                        EmergencyNotifier.cancelAlert(context)
                     }
                 } else {
                     activeDisaster = null
+                    activeSenderId = null
+                    activeLocationInfo = null
+                    activeDeviceInfo = null
+                    lastActiveAlertId = null
+                    EmergencyNotifier.cancelAlert(context)
                 }
             }
         onDispose {
@@ -171,30 +193,16 @@ fun SmartDrillApp() {
             currentTheme = currentTheme,
             onThemeChanged = { currentTheme = it },
             onDisasterSelected = { disaster ->
-                if (!EmergencyNotifier.isInsideCampus(context)) {
-                    toast("❌ SOS Denied: You are outside campus! False alarms are strictly prohibited.")
-                } else {
-                    val senderId = EmergencyNotifier.getSenderId(context)
-                    val deviceInfo = EmergencyNotifier.getDeviceInfo()
-                    val locationInfo = EmergencyNotifier.getLocationInfo(context)
-                    activeDisaster = disaster
-                    activeSenderId = senderId
-                    activeLocationInfo = locationInfo
-                    activeDeviceInfo = deviceInfo
-                    
-                    // Broadcast SOS over offline Bluetooth/Wi-Fi mesh to nearby phones
-                    meshManager.broadcastSOS(disaster.name, senderId, locationInfo, deviceInfo)
-                    
-                    EmergencyNotifier.showEmergencyAlert(context, disaster, senderId, locationInfo, deviceInfo)
-                    toast("${disaster.label} alert sent by $senderId")
-                    goToTab(BottomTab.HOME)
-                }
+                // Note: Selecting disaster here only submits pending report; alarm waits for admin approval on Firestore alerts collection.
+                toast("${disaster.label} report submitted. Waiting for admin approval.")
+                goToTab(BottomTab.HOME)
             },
             onClearAlert = {
                 activeDisaster = null
                 activeSenderId = null
                 activeLocationInfo = null
                 activeDeviceInfo = null
+                lastActiveAlertId = null
                 EmergencyNotifier.cancelAlert(context)
                 toast("Alert cleared")
                 goToTab(BottomTab.HOME)

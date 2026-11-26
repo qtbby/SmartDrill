@@ -20,11 +20,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +32,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.smartdrill.EmergencyNotifier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -57,6 +52,41 @@ fun EmergencyActionsScreen(
 
     fun dial(number: String) {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+    }
+
+    // Editable emergency contacts from Firestore with fallbacks
+    var contacts by remember {
+        mutableStateOf(
+            mapOf(
+                "police" to Pair("PNP", "09985987104"),
+                "fire" to Pair("Fire", "09284587586"),
+                "medical" to Pair("CDRRMO", "09302385937"),
+                "power" to Pair("Power", "09190563572"),
+                "coast-guard" to Pair("Coast Guard", "09692151869"),
+                "mayors-office" to Pair("Mayor's Office", "09988107142")
+            )
+        )
+    }
+
+    DisposableEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val listener = db.collection("emergencyContacts")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                if (snapshot != null && !snapshot.isEmpty) {
+                    val map = contacts.toMutableMap()
+                    for (doc in snapshot.documents) {
+                        val id = doc.id
+                        val label = doc.getString("label") ?: doc.getString("name") ?: id.uppercase()
+                        val phone = doc.getString("phone") ?: "911"
+                        map[id] = Pair(label, phone)
+                    }
+                    contacts = map
+                }
+            }
+        onDispose {
+            listener.remove()
+        }
     }
 
     // Location permission state & launcher
@@ -159,7 +189,7 @@ fun EmergencyActionsScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = "1. Tap the emergency type (Flood, Earthquake, Storm, or Fire).\n2. Your precise GPS location and device info will be sent for verification.\n3. Reports are rate-limited (5-minute cooldown per user to prevent spam).\n4. Once verified and approved by admin, public alerts and evacuation routes appear instantly on all dashboards.",
+                            text = "1. Tap the emergency type (Flood, Earthquake, Storm, or Fire).\n2. Your precise GPS location is submitted as a PENDING report (alarms do NOT sound until admin approval).\n3. Reports are rate-limited (5-minute cooldown per user).\n4. Once verified and approved on the admin website, public alerts and evacuation routes appear instantly.",
                             color = Color(0xFF94A3B8),
                             fontSize = 11.sp,
                             lineHeight = 16.sp
@@ -179,10 +209,19 @@ fun EmergencyActionsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    HotlineButton("👮", "PNP\n0998 598") { dial("09985987104") }
-                    HotlineButton("🧑‍🚒", "Fire\n0928 458") { dial("09284587586") }
-                    HotlineButton("🚨", "CDRRMO\n0930 238") { dial("09302385937") }
-                    HotlineButton("⚡", "Power\n0919 056") { dial("09190563572") }
+                    contacts.entries.take(4).forEach { (id, pair) ->
+                        val (label, phone) = pair
+                        val icon = when (id) {
+                            "police" -> "👮"
+                            "fire" -> "🧑‍🚒"
+                            "medical" -> "🚨"
+                            "power" -> "⚡"
+                            "coast-guard" -> "⚓"
+                            "mayors-office" -> "🏛️"
+                            else -> "📞"
+                        }
+                        HotlineButton(icon, label) { dial(phone) }
+                    }
                 }
             }
             AppBottomBar(BottomTab.SOS, onTabSelected)
@@ -193,12 +232,11 @@ fun EmergencyActionsScreen(
         AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Send ${disaster.label} report?") },
-            text = { Text("Your emergency report along with your current GPS location will be sent for administrator verification. No login required.") },
+            text = { Text("Your emergency report along with your current GPS location will be sent as PENDING for administrator review. Note: Phone alarms will NOT sound until an admin approves this report.") },
             confirmButton = {
                 TextButton(onClick = {
                     pending = null
 
-                    // 1. Check location permission and obtain real location once
                     if (!hasLocationPermission) {
                         Toast.makeText(context, "Location permission denied. Cannot submit report without coordinates.", Toast.LENGTH_LONG).show()
                         return@TextButton
@@ -229,7 +267,7 @@ fun EmergencyActionsScreen(
                         val userRef = db.collection("users").document(uid)
 
                         userRef.get().addOnSuccessListener { userDoc ->
-                            // Check if user is an admin; admins must not send SOS reports
+                            // Admins must not send SOS reports
                             val role = userDoc.getString("role")
                             if (role == "admin") {
                                 Toast.makeText(context, "Administrators cannot submit emergency reports.", Toast.LENGTH_LONG).show()
@@ -246,21 +284,16 @@ fun EmergencyActionsScreen(
                                 }
                             }
 
-                            val senderId = EmergencyNotifier.getSenderId(context)
-                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
                             val reportId = db.collection("reports").document().id
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
                                 "lat" to currentLat,
                                 "lng" to currentLng,
-                                "senderId" to senderId,
-                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
 
-                            // Same Firestore WriteBatch: create report AND update/create user profile lastReportAt
                             val batch = db.batch()
                             batch.set(db.collection("reports").document(reportId), reportData)
                             
@@ -271,23 +304,18 @@ fun EmergencyActionsScreen(
                             batch.set(userRef, profileUpdates, SetOptions.merge())
 
                             batch.commit().addOnSuccessListener {
-                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
-                                onDisasterSelected(disaster)
+                                Toast.makeText(context, "Report submitted. Waiting for admin approval.", Toast.LENGTH_LONG).show()
+                                // Note: DO NOT trigger alarm or onDisasterSelected here. Alarm only sounds when admin approves into alerts collection.
                             }.addOnFailureListener { err ->
                                 Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
                             }
                         }.addOnFailureListener { _ ->
-                            // If user profile doc doesn't exist yet, create it in batch
-                            val senderId = EmergencyNotifier.getSenderId(context)
-                            val deviceInfo = EmergencyNotifier.getDeviceInfo()
                             val reportId = db.collection("reports").document().id
                             val reportData = hashMapOf(
                                 "userId" to uid,
                                 "type" to disaster.name.lowercase(),
                                 "lat" to currentLat,
                                 "lng" to currentLng,
-                                "senderId" to senderId,
-                                "deviceInfo" to deviceInfo,
                                 "createdAt" to FieldValue.serverTimestamp(),
                                 "status" to "pending"
                             )
@@ -301,8 +329,7 @@ fun EmergencyActionsScreen(
                             batch.set(userRef, profileUpdates, SetOptions.merge())
 
                             batch.commit().addOnSuccessListener {
-                                Toast.makeText(context, "Report sent. Waiting for admin approval.", Toast.LENGTH_LONG).show()
-                                onDisasterSelected(disaster)
+                                Toast.makeText(context, "Report submitted. Waiting for admin approval.", Toast.LENGTH_LONG).show()
                             }.addOnFailureListener { err ->
                                 Toast.makeText(context, "Failed to send report: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
                             }
