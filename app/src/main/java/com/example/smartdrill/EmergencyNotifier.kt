@@ -19,13 +19,13 @@ object EmergencyNotifier {
     private const val CHANNEL_ID = "smart_drill_emergency_channel"
 
     // Campus center coordinates (DNSC reference point)
-    private const val CAMPUS_LAT = 7.3135228
-    private const val CAMPUS_LNG = 125.67033
+    private const val CAMPUS_LAT = 7.313721
+    private const val CAMPUS_LNG = 125.670175
     private const val MAX_CAMPUS_RADIUS_METERS = 1000.0 // 1 km radius geofence
 
     fun isInsideCampus(context: Context): Boolean {
-        val JM = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val bestLocation = getBestLocation(JM) ?: return false
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val bestLocation = getBestLocation(lm) ?: return false
         val results = FloatArray(1)
         Location.distanceBetween(
             bestLocation.latitude, bestLocation.longitude,
@@ -34,9 +34,6 @@ object EmergencyNotifier {
         return results[0] <= MAX_CAMPUS_RADIUS_METERS
     }
 
-    // Best-effort GPS/network fix. Returns null when no location is available or
-    // the app lacks location permission, so callers can deny the SOS instead of
-    // assuming the user is on campus (anti-prank geofencing).
     private fun getBestLocation(locationManager: LocationManager): Location? {
         val providers = (locationManager.getProviders(true) ?: return null)
         var best: Location? = null
@@ -53,8 +50,6 @@ object EmergencyNotifier {
         return best
     }
 
-    // Human-readable location string for the SOS broadcast. Falls back to a
-    // generic message when GPS is unavailable so the alert is never silently empty.
     fun getLocationInfo(context: Context): String {
         val bestLocation = getBestLocation(context.getSystemService(Context.LOCATION_SERVICE) as LocationManager)
             ?: return "GPS location unavailable"
@@ -104,10 +99,18 @@ object EmergencyNotifier {
         }
     }
 
-    fun showEmergencyAlert(context: Context, disaster: Disaster, senderId: String, locationInfo: String, deviceInfo: String) {
+    fun showEmergencyAlert(
+        context: Context,
+        disaster: Disaster,
+        senderId: String,
+        locationInfo: String,
+        deviceInfo: String,
+        customSteps: List<String>? = null
+    ) {
         createChannel(context)
         playSenderTone()
 
+        val stepsToUse = if (!customSteps.isNullOrEmpty()) customSteps else disaster.steps
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -124,7 +127,7 @@ object EmergencyNotifier {
             .setContentText(messageText)
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("🚨 ${disaster.alertTitle}\n👤 Sender ID: $senderId\n📱 Device: $deviceInfo\n📍 Location: $locationInfo\n\nSafety Steps:\n" + disaster.steps.joinToString("\n") { "• $it" })
+                    .bigText("🚨 ${disaster.alertTitle}\n👤 Approved By: $senderId\n📍 Location: $locationInfo\n\nSafety Steps:\n" + stepsToUse.joinToString("\n") { "• $it" })
             )
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

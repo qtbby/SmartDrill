@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -61,23 +62,19 @@ fun SmartDrillApp() {
 
     // Initialize Google Nearby Connections Mesh Manager
     val meshManager = remember {
-        NearbyMeshManager(context) { disasterType, senderId, locationInfo, deviceInfo ->
-            val disaster = Disaster.entries.find { it.name.equals(disasterType, true) } ?: Disaster.EARTHQUAKE
-            activeDisaster = disaster
-            activeSenderId = senderId
-            activeLocationInfo = locationInfo
-            activeDeviceInfo = deviceInfo
-            // Note: Peer mesh broadcasts remain local or can be handled as needed
-        }
+        NearbyMeshManager(context) { _, _, _, _ -> }
     }
 
     // Firestore live listener for active alerts from admin website (active == true)
-    // Ensures alarm waits for admin approval and does not re-trigger repeatedly on snapshot refreshes.
+    // Reports errors to Logcat and avoids duplicate alarm triggers on snapshot refreshes.
     DisposableEffect(Unit) {
         val db = FirebaseFirestore.getInstance()
         val listener = db.collection("alerts")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) return@addSnapshotListener
+                if (error != null) {
+                    Log.e("FirestoreAlerts", "Alert listener failed with error: ${error.localizedMessage}", error)
+                    return@addSnapshotListener
+                }
                 if (snapshot != null && !snapshot.isEmpty) {
                     val activeDoc = snapshot.documents.firstOrNull { doc ->
                         val activeVal = doc.get("active")
@@ -89,16 +86,28 @@ fun SmartDrillApp() {
                         val typeStr = activeDoc.getString("type") ?: "earthquake"
                         val disaster = Disaster.entries.find { it.name.equals(typeStr, true) } ?: Disaster.EARTHQUAKE
                         val msg = activeDoc.getString("message") ?: "Emergency Alert Active"
+                        val stepsList = activeDoc.get("steps") as? List<*>?
+                        val customSteps = stepsList?.mapNotNull { it?.toString() }
+                        val approvedBy = activeDoc.getString("approvedBy") ?: "Admin EOC"
+                        val lat = activeDoc.getDouble("lat") ?: 7.313721
+                        val lng = activeDoc.getDouble("lng") ?: 125.670175
 
                         activeDisaster = disaster
-                        activeSenderId = "Admin EOC"
-                        activeLocationInfo = "Campus Command Center"
+                        activeSenderId = approvedBy
+                        activeLocationInfo = "$msg (Lat: %.4f, Lng: %.4f)".format(lat, lng)
                         activeDeviceInfo = EmergencyNotifier.getDeviceInfo()
 
-                        // Play alarm sound and notification ONLY ONCE per new active alert ID
+                        // Trigger alarm sound and system notification ONLY ONCE per new active alert ID
                         if (lastActiveAlertId != alertId) {
                             lastActiveAlertId = alertId
-                            EmergencyNotifier.showEmergencyAlert(context, disaster, "Admin EOC", "Campus Command Center", msg)
+                            EmergencyNotifier.showEmergencyAlert(
+                                context = context,
+                                disaster = disaster,
+                                senderId = approvedBy,
+                                locationInfo = activeLocationInfo ?: "Campus",
+                                deviceInfo = activeDeviceInfo ?: "Device",
+                                customSteps = customSteps
+                            )
                         }
                     } else {
                         activeDisaster = null
@@ -143,6 +152,8 @@ fun SmartDrillApp() {
                     )
                     db.collection("users").document(uid).set(userDoc, SetOptions.merge())
                 }
+            }.addOnFailureListener { e ->
+                Log.e("FirebaseAuth", "Anonymous sign-in failed: ${e.localizedMessage}", e)
             }
         }
 
@@ -193,7 +204,6 @@ fun SmartDrillApp() {
             currentTheme = currentTheme,
             onThemeChanged = { currentTheme = it },
             onDisasterSelected = { disaster ->
-                // Note: Selecting disaster here only submits pending report; alarm waits for admin approval on Firestore alerts collection.
                 toast("${disaster.label} report submitted. Waiting for admin approval.")
                 goToTab(BottomTab.HOME)
             },
