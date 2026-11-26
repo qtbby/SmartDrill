@@ -64,6 +64,7 @@ fun SmartDrillApp() {
     DisposableEffect(Unit) {
         val db = FirebaseFirestore.getInstance()
         val listener = db.collection("alerts")
+            .whereEqualTo("active", true)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("FirestoreAlerts", "Alert listener failed with error: ${error.localizedMessage}", error)
