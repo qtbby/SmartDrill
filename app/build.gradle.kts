@@ -69,5 +69,4 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.osmdroid.android)
-    implementation("com.google.android.gms:play-services-nearby:18.7.0")
 }

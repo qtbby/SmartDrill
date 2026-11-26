@@ -17,7 +17,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -59,11 +58,6 @@ fun SmartDrillApp() {
     var activeLocationInfo by rememberSaveable { mutableStateOf<String?>(null) }
     var activeDeviceInfo by rememberSaveable { mutableStateOf<String?>(null) }
     var lastActiveAlertId by rememberSaveable { mutableStateOf<String?>(null) }
-
-    // Initialize Google Nearby Connections Mesh Manager
-    val meshManager = remember {
-        NearbyMeshManager(context) { _, _, _, _ -> }
-    }
 
     // Firestore live listener for active alerts from admin website (active == true)
     // Reports errors to Logcat and avoids duplicate alarm triggers on snapshot refreshes.
@@ -137,8 +131,6 @@ fun SmartDrillApp() {
     ) { _ -> }
 
     LaunchedEffect(Unit) {
-        meshManager.startMeshService()
-
         val auth = FirebaseAuth.getInstance()
         if (auth.currentUser == null) {
             auth.signInAnonymously().addOnSuccessListener { result ->
