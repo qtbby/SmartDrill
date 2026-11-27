@@ -34,7 +34,8 @@ enum class BottomTab { MAP, HOME, SOS }
 
 // Professional theme options for the user interface.
 enum class AppTheme(val label: String, val colors: List<Color>) {
-    DARK_SLATE("Dark Slate (Default)", listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A))),
+    GREEN_LED("SmartDrill Green", listOf(Color(0xFF092619), Color(0xFF123829), Color(0xFF092619))),
+    DARK_SLATE("Dark Slate", listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A))),
     MIDNIGHT_NAVY("Midnight Navy", listOf(Color(0xFF0A192F), Color(0xFF172A45), Color(0xFF0A192F))),
     EMERALD_DEFENSE("Emerald Defense", listOf(Color(0xFF064E3B), Color(0xFF022C22), Color(0xFF064E3B))),
     CRIMSON_COMMAND("Crimson Command", listOf(Color(0xFF450A0A), Color(0xFF1C1917), Color(0xFF450A0A)))
@@ -82,7 +83,7 @@ enum class Disaster(val label: String, val emoji: String, val steps: List<String
 
 // Shared full-screen background wrapper for the main dashboard and emergency destinations.
 @Composable
-fun ScreenGradient(modifier: Modifier = Modifier, theme: AppTheme = AppTheme.DARK_SLATE, content: @Composable BoxScope.() -> Unit) {
+fun ScreenGradient(modifier: Modifier = Modifier, theme: AppTheme = AppTheme.GREEN_LED, content: @Composable BoxScope.() -> Unit) {
     Box(
         modifier = modifier
             .fillMaxSize()

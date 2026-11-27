@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -57,9 +59,19 @@ import java.io.File
 // Label and coordinates for a map marker such as the user's location or a safe destination.
 data class MapPoint(val name: String, val position: LatLon)
 
-// Firestore evacuation location model (points and polygon areas)
+// Campus model matching Firestore campuses collection
+data class Campus(
+    val id: String = "",
+    val name: String = "DNSC Main Campus",
+    val lat: Double = 7.313721,
+    val lng: Double = 125.670175,
+    val active: Boolean = true
+)
+
+// Firestore evacuation location model (points and polygon areas) supporting optional campusId
 data class FirestoreEvacuationLocation(
     val id: String = "",
+    val campusId: String? = null,
     val kind: String = "point", // "point" or "area"
     val name: String = "",
     val description: String = "",
@@ -77,13 +89,47 @@ val DefaultMapCenter = LatLon(7.313721, 125.670175)
 fun MapScreen(
     modifier: Modifier = Modifier,
     hazardActive: Boolean = false,
-    currentTheme: AppTheme = AppTheme.DARK_SLATE,
+    currentTheme: AppTheme = AppTheme.GREEN_LED,
     onThemeChanged: (AppTheme) -> Unit = {},
     onTabSelected: (BottomTab) -> Unit = {}
 ) {
     var userLocation by remember { mutableStateOf<LatLon?>(null) }
     val route = remember(hazardActive, userLocation) {
         userLocation?.let { CampusGraph.findRouteFrom(it.lat, it.lng, hazardActive) }
+    }
+
+    // Campuses state & selection
+    var campuses by remember { mutableStateOf<List<Campus>>(emptyList()) }
+    var selectedCampusId by remember { mutableStateOf<String?>(null) }
+    var currentCampusCenter by remember { mutableStateOf(DefaultMapCenter) }
+    var campusMenuOpen by remember { mutableStateOf(false) }
+
+    // Live listener for campuses from Firestore (active != false)
+    DisposableEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val listener = db.collection("campuses")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                if (snapshot != null) {
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            val name = doc.getString("name") ?: "Campus"
+                            val lat = doc.getDouble("lat") ?: 7.313721
+                            val lng = doc.getDouble("lng") ?: 125.670175
+                            val active = doc.getBoolean("active") ?: true
+                            if (active != false) {
+                                Campus(id = doc.id, name = name, lat = lat, lng = lng, active = active)
+                            } else null
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    campuses = list
+                }
+            }
+        onDispose {
+            listener.remove()
+        }
     }
 
     // Live listener for evacuation locations from Firestore (active == true)
@@ -100,6 +146,7 @@ fun MapScreen(
                 if (snapshot != null) {
                     val list = snapshot.documents.mapNotNull { doc ->
                         try {
+                            val campusId = doc.getString("campusId")
                             val kind = doc.getString("kind") ?: "point"
                             val name = doc.getString("name") ?: "Evacuation Point"
                             val desc = doc.getString("description") ?: ""
@@ -128,6 +175,7 @@ fun MapScreen(
 
                             FirestoreEvacuationLocation(
                                 id = doc.id,
+                                campusId = campusId,
                                 kind = kind,
                                 name = name,
                                 description = desc,
@@ -148,6 +196,15 @@ fun MapScreen(
         }
     }
 
+    // Filter evacuations by selected campus (supporting legacy locations without campusId gracefully)
+    val filteredEvacuations = remember(firestoreEvacuations, selectedCampusId) {
+        if (selectedCampusId == null) {
+            firestoreEvacuations
+        } else {
+            firestoreEvacuations.filter { it.campusId == null || it.campusId == selectedCampusId }
+        }
+    }
+
     ScreenGradient(modifier, currentTheme) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Column(
@@ -156,7 +213,52 @@ fun MapScreen(
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
                 HomeHeader(currentTheme, onThemeChanged)
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
+
+                // Campus selector row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Campus: ${campuses.find { it.id == selectedCampusId }?.name ?: "DNSC Main Campus"}",
+                        color = Color(0xFF34D399),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Box {
+                        Button(
+                            onClick = { campusMenuOpen = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Switch Campus", fontSize = 12.sp, color = Color.White)
+                        }
+                        DropdownMenu(expanded = campusMenuOpen, onDismissRequest = { campusMenuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("DNSC Default Campus") },
+                                onClick = {
+                                    campusMenuOpen = false
+                                    selectedCampusId = null
+                                    currentCampusCenter = DefaultMapCenter
+                                }
+                            )
+                            campuses.forEach { campus ->
+                                DropdownMenuItem(
+                                    text = { Text(campus.name) },
+                                    onClick = {
+                                        campusMenuOpen = false
+                                        selectedCampusId = campus.id
+                                        currentCampusCenter = LatLon(campus.lat, campus.lng)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
                 if (route != null) {
                     InfoLine("Route from your current location")
                     InfoLine("You will arrive at: ${route.arrivalText}")
@@ -167,7 +269,7 @@ fun MapScreen(
                     Button(
                         onClick = { showExplanationDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F3B4F)),
-                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("📊 How was this route calculated?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -183,7 +285,8 @@ fun MapScreen(
                     route = route,
                     hazardActive = hazardActive,
                     userLocation = userLocation,
-                    firestoreEvacuations = firestoreEvacuations,
+                    center = currentCampusCenter,
+                    firestoreEvacuations = filteredEvacuations,
                     onLocationChanged = { userLocation = it },
                     onEvacuationSelected = { selectedEvacuation = it }
                 )
@@ -284,6 +387,7 @@ fun CampusMapCard(
     hazardActive: Boolean,
     interactive: Boolean = true,
     userLocation: LatLon? = null,
+    center: LatLon = DefaultMapCenter,
     firestoreEvacuations: List<FirestoreEvacuationLocation> = emptyList(),
     onLocationChanged: (LatLon?) -> Unit = {},
     onEvacuationSelected: (FirestoreEvacuationLocation) -> Unit = {}
@@ -297,7 +401,7 @@ fun CampusMapCard(
 
     MapCard(
         modifier = modifier,
-        center = DefaultMapCenter,
+        center = center,
         start = start,
         hazards = hazards,
         route = route?.path ?: emptyList(),
@@ -335,13 +439,6 @@ fun MapCard(
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-    }
-
     val mapView = remember {
         val config = Configuration.getInstance()
         config.userAgentValue = "SmartDrillCampusApp/1.0 (school project; contact: albit.al@dnsc.edu.ph)"
@@ -355,6 +452,11 @@ fun MapCard(
             controller.setZoom(17.0)
             controller.setCenter(GeoPoint(center.lat, center.lng))
         }
+    }
+
+    // Whenever center changes (e.g. campus switched), animate map to new center
+    LaunchedEffect(center) {
+        mapView.controller.animateTo(GeoPoint(center.lat, center.lng))
     }
 
     val locationOverlay = remember(mapView) {
@@ -460,10 +562,10 @@ fun MapCard(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Return to Campus Center Button (Lat 7.313721, Lng 125.670175)
+                // Return to Campus Center Button (Lat 7.313721, Lng 125.670175 or active campus)
                 FloatingActionButton(
                     onClick = {
-                        mapView.controller.animateTo(GeoPoint(DefaultMapCenter.lat, DefaultMapCenter.lng))
+                        mapView.controller.animateTo(GeoPoint(center.lat, center.lng))
                     },
                     modifier = Modifier.size(44.dp),
                     containerColor = Color(0xFF0F3B4F),

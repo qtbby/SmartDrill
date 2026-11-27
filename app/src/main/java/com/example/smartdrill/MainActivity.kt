@@ -52,7 +52,7 @@ fun SmartDrillApp() {
     val context = LocalContext.current
 
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
-    var currentTheme by rememberSaveable { mutableStateOf(AppTheme.DARK_SLATE) }
+    var currentTheme by rememberSaveable { mutableStateOf(AppTheme.GREEN_LED) }
     var activeDisaster by rememberSaveable { mutableStateOf<Disaster?>(null) }
     var activeSenderId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeLocationInfo by rememberSaveable { mutableStateOf<String?>(null) }
